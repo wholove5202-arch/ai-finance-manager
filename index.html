@@ -404,6 +404,7 @@ function renderLoans(){
 }
 
 function show(id,btn){
+ window.scrollTo(0,0);
  ['home','records','analysis','gift','loan'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));
  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');render();
 }
