@@ -409,6 +409,6 @@ function show(id,btn){
  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');render();
 }
 render();renderGifts();renderLoans();smartPreview();
-</script>
+function addCategory(){const n=prompt('请输入新分类名称');if(n&&n.trim())document.getElementById('category').add(new Option(n.trim()));}</script>
 </body>
 </html>
