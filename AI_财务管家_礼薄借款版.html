@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AI财务管家">
+<title>AI财务管家</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f6fa;color:#17181c}
+.wrap{max-width:560px;margin:auto;min-height:100vh;padding-bottom:94px}
+header{padding:26px 20px 16px;background:#fff;border-bottom-left-radius:26px;border-bottom-right-radius:26px}
+h1{font-size:28px;margin:0 0 7px}.sub{color:#777;font-size:14px}
+.card{margin:14px 16px;padding:18px;border-radius:22px;background:#fff;box-shadow:0 4px 18px #00000008}
+.balance{font-size:38px;font-weight:800;margin:8px 0 18px}
+.row{display:flex;gap:10px}.stat{flex:1;background:#f6f7fb;border-radius:15px;padding:13px}.stat b{display:block;font-size:19px;margin-top:5px}
+.muted{color:#777;font-size:13px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.full{grid-column:1/-1}
+label{display:block;font-size:13px;color:#666;margin:8px 0 0}
+input,select,button{font:inherit}
+input,select{width:100%;padding:13px;border:1px solid #e2e3e8;border-radius:13px;background:white;margin-top:6px}
+button{border:0;border-radius:13px;padding:12px 16px;background:#17181c;color:#fff;font-weight:650}
+.primary{width:100%;margin-top:14px}
+.smart{margin-top:12px;padding:12px 13px;border-radius:14px;background:#f5f7ff;line-height:1.65;font-size:14px}
+.pill{display:inline-block;padding:3px 8px;border-radius:9px;background:#eee;font-size:12px;margin-right:5px}
+.green{color:#18733c}.red{color:#b52b2b}
+.record{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #eee}
+.record:last-child{border:0}.record-right{text-align:right;white-space:nowrap}
+.del{margin-top:6px;padding:5px 9px;background:#f0f1f5;color:#777;font-size:11px}
+.advice{line-height:1.75}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mini{background:#f6f7fb;border-radius:14px;padding:11px}.mini b{display:block;font-size:17px;margin-top:4px}
+.bar{height:9px;background:#eee;border-radius:99px;overflow:hidden;margin-top:7px}.bar i{display:block;height:100%;background:#17181c;border-radius:99px}
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(560px,100%);display:flex;background:#fff;border-top:1px solid #eee;padding:10px 12px calc(10px + env(safe-area-inset-bottom));gap:8px;z-index:5}
+nav button{flex:1;background:#fff;color:#777;padding:10px}nav button.active{background:#17181c;color:#fff}
+.hidden{display:none}.empty{padding:22px;text-align:center;color:#999}
+h3{margin:0 0 12px}
+@media(max-width:390px){.formgrid{grid-template-columns:1fr}.full{grid-column:auto}}
+
+.loan-ok{color:#18733c}.loan-bad{color:#b52b2b}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>AI 财务管家</h1>
+<div class="sub">记录每一笔收入和支出，帮你看清钱花在哪里。</div>
+</header>
+
+<section id="home">
+<div class="card">
+<div class="muted">当前结余</div>
+<div class="balance" id="balance">¥0.00</div>
+<div class="row">
+<div class="stat"><span class="muted">本月收入</span><b id="income">¥0.00</b></div>
+<div class="stat"><span class="muted">本月支出</span><b id="expense">¥0.00</b></div>
+</div>
+</div>
+
+<div class="card">
+<h3>记一笔</h3>
+<div class="formgrid">
+<label>类型<select id="type" onchange="smartPreview()"><option value="expense">支出</option><option value="income">收入</option></select></label>
+<label>金额<input id="amount" type="number" inputmode="decimal" placeholder="0.00" oninput="smartPreview()"></label>
+<label>分类<select id="category" onchange="smartPreview()"><option>餐饮</option><option>交通</option><option>购物</option><option>住房</option><option>娱乐</option><option>医疗</option><option>工资</option><option>转账</option><option>其他</option></select></label>
+<label>必要性<select id="need"><option value="necessary">必要</option><option value="normal">一般</option><option value="reduce">可减少</option></select></label>
+<label class="full">备注<input id="note" placeholder="例如：午餐、打车、工资"></label>
+</div>
+<div id="smart" class="smart">💡 输入金额和分类后，我会先给你一个消费建议。</div>
+<button class="primary" onclick="addRecord()">保存这笔</button>
+</div>
+
+<div class="card">
+<h3>本周小结</h3>
+<div class="grid3">
+<div class="mini"><span class="muted">收入</span><b id="weekIncome">¥0</b></div>
+<div class="mini"><span class="muted">支出</span><b id="weekExpense">¥0</b></div>
+<div class="mini"><span class="muted">可减少</span><b id="weekReduce">¥0</b></div>
+</div>
+<div id="weekAdvice" class="advice" style="margin-top:12px">先记录几笔账单，我会生成本周总结。</div>
+</div>
+</section>
+
+<section id="records" class="hidden">
+<div class="card"><h3>全部账单</h3><div id="list"></div></div>
+</section>
+
+<section id="analysis" class="hidden">
+<div class="card">
+<h3>智能分析</h3>
+<div id="analysisText" class="advice"></div>
+</div>
+<div class="card">
+<h3>支出分类</h3>
+<div id="categoryText"></div>
+</div>
+</section>
+</div>
+
+<section id="gift" class="hidden">
+<div class="card">
+<h3>礼薄 · 随礼记录</h3>
+<div class="muted">礼薄和日常消费放在一起统计：我送出算支出，我收到算收入。借款不会计入这里。</div>
+<div class="formgrid" style="margin-top:8px">
+<label>类型<select id="giftType">
+<option value="give">我送出</option>
+<option value="receive">我收到</option>
+</select></label>
+<label>金额<input id="giftAmount" type="number" inputmode="decimal" placeholder="0.00"></label>
+<label>对象<input id="giftPerson" placeholder="例如：张三"></label>
+<label>场合<input id="giftOccasion" placeholder="例如：结婚"></label>
+<label class="full">备注<input id="giftNote" placeholder="例如：现金、转账"></label>
+</div>
+<button class="primary" onclick="addGift()">保存礼薄</button>
+</div>
+<div class="card">
+<h3>礼薄汇总</h3>
+<div class="grid3">
+<div class="mini"><span class="muted">送出</span><b id="giftGiven">¥0</b></div>
+<div class="mini"><span class="muted">收到</span><b id="giftReceived">¥0</b></div>
+<div class="mini"><span class="muted">净额</span><b id="giftNet">¥0</b></div>
+</div>
+</div>
+<div class="card">
+<h3>礼薄历史</h3>
+<div id="giftList"></div>
+</div>
+</section>
+
+</section>
+
+<section id="loan" class="hidden">
+<div class="card">
+<h3>借款管理</h3>
+<div class="muted">专门保存你借出去、借进来的钱，和日常消费分开。可以记录“历史借款”，以后再补还款。</div>
+<div class="formgrid" style="margin-top:8px">
+<label>类型<select id="loanType">
+<option value="out">我借给别人</option>
+<option value="in">别人借给我</option>
+</select></label>
+<label>金额<input id="loanAmount" type="number" inputmode="decimal" placeholder="0.00"></label>
+<label>对方<input id="loanPerson" placeholder="例如：李四"></label>
+<label>日期<input id="loanDate" type="date"></label>
+<label>用途<input id="loanPurpose" placeholder="例如：周转、买车"></label>
+<label>状态<select id="loanStatus">
+<option value="unpaid">未还</option>
+<option value="partial">部分已还</option>
+<option value="paid">已还清</option>
+</select></label>
+<label class="full">备注<input id="loanNote" placeholder="例如：约定月底归还"></label>
+</div>
+<button class="primary" onclick="addLoan()">保存借款</button>
+</div>
+<div class="card">
+<h3>借款汇总</h3>
+<div class="grid3">
+<div class="mini"><span class="muted">借出未还</span><b id="loanOut">¥0</b></div>
+<div class="mini"><span class="muted">借入未还</span><b id="loanIn">¥0</b></div>
+<div class="mini"><span class="muted">未结笔数</span><b id="loanCount">0</b></div>
+</div>
+</div>
+<div class="card">
+<h3>借款历史</h3>
+<div id="loanList"></div>
+</div>
+</section>
+
+</div>
+
+<nav>
+<button class="active" onclick="show('home',this)">首页</button>
+<button onclick="show('records',this)">账单</button>
+<button onclick="show('analysis',this)">分析</button>
+<button onclick="show('loan',this)">借款</button>
+</nav>
+
+<script>
+const KEY='ai_finance_records';
+let records=JSON.parse(localStorage.getItem(KEY)||'[]');
+const GIFT_KEY='ai_finance_gifts';
+const LOAN_KEY='ai_finance_loans';
+let gifts=JSON.parse(localStorage.getItem(GIFT_KEY)||'[]');
+let loans=JSON.parse(localStorage.getItem(LOAN_KEY)||'[]');
+
+const money=n=>'¥'+Number(n||0).toFixed(2);
+const fmtDate=d=>new Date(d).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
+function monthRecords(){
+ const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+ return records.filter(r=>{const d=new Date(r.date);return d.getFullYear()===y&&d.getMonth()===m});
+}
+function weekRecords(){
+ const now=new Date(), day=now.getDay()||7, start=new Date(now);
+ start.setHours(0,0,0,0); start.setDate(now.getDate()-day+1);
+ return records.filter(r=>new Date(r.date)>=start);
+}
+function giftAsRecords(){
+ return gifts.map(x=>({
+   id:'gift-'+x.id,
+   type:x.type==='give'?'expense':'income',
+   amount:x.amount,
+   category:'礼薄',
+   need:x.type==='give'?'normal':'normal',
+   note:(x.person?x.person:'')+(x.occasion?' · '+x.occasion:'')+(x.note?' · '+x.note:''),
+   date:x.date,
+   isGift:true
+ }));
+}
+function allRecords(){
+ return records.concat(giftAsRecords());
+}
+function monthAllRecords(){
+ const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+ return allRecords().filter(r=>{const d=new Date(r.date);return d.getFullYear()===y&&d.getMonth()===m});
+}
+function weekAllRecords(){
+ const now=new Date(), day=now.getDay()||7, start=new Date(now);
+ start.setHours(0,0,0,0); start.setDate(now.getDate()-day+1);
+ return allRecords().filter(r=>new Date(r.date)>=start);
+}
+function smartNeed(category,amount){
+ if(category==='工资'||category==='转账') return 'normal';
+ if(['住房','医疗'].includes(category)) return 'necessary';
+ if(['购物','娱乐'].includes(category) && amount>=200) return 'reduce';
+ if(category==='餐饮' && amount>=80) return 'reduce';
+ if(category==='交通' && amount>=100) return 'reduce';
+ return ['餐饮','交通'].includes(category)?'normal':'necessary';
+}
+function smartPreview(){
+ const type=document.getElementById('type').value;
+ const category=document.getElementById('category').value;
+ const amount=Number(document.getElementById('amount').value||0);
+ const box=document.getElementById('smart');
+ if(type==='income'){box.innerHTML='💰 这是收入。保存后会自动计入结余和本月收入。';return}
+ const need=smartNeed(category,amount);
+ const text={necessary:'必要',normal:'一般',reduce:'可减少'}[need];
+ let tip=need==='reduce'?'建议：这笔消费金额偏高，可以在本周复盘时重点检查。':need==='necessary'?'建议：这类支出通常属于生活必需项。':'建议：这类支出可以正常消费，但建议观察本周累计金额。';
+ box.innerHTML='🤖 智能判断：<span class="pill">'+category+'</span><span class="pill">'+text+'</span><br>'+tip;
+}
+function addRecord(){
+ const amount=Number(document.getElementById('amount').value);
+ if(!amount||amount<=0){alert('请输入金额');return}
+ const type=document.getElementById('type').value;
+ const category=document.getElementById('category').value;
+ let need=document.getElementById('need').value;
+ if(type==='expense' && need==='necessary' && document.getElementById('need').dataset.auto==='1') need=smartNeed(category,amount);
+ records.unshift({id:Date.now(),type,amount,category,need,note:document.getElementById('note').value,date:new Date().toISOString()});
+ localStorage.setItem(KEY,JSON.stringify(records));
+ document.getElementById('amount').value='';document.getElementById('note').value='';
+ render();alert('已保存');
+}
+function sums(rs){
+ return {
+ income:rs.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0),
+ expense:rs.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0),
+ reduce:rs.filter(r=>r.type==='expense'&&r.need==='reduce').reduce((s,r)=>s+r.amount,0)
+ };
+}
+function render(){
+ const mr=monthAllRecords(), wr=weekAllRecords(), ms=sums(mr), ws=sums(wr);
+ document.getElementById('income').textContent=money(ms.income);
+ document.getElementById('expense').textContent=money(ms.expense);
+ document.getElementById('balance').textContent=money(ms.income-ms.expense);
+ document.getElementById('weekIncome').textContent=money(ws.income);
+ document.getElementById('weekExpense').textContent=money(ws.expense);
+ document.getElementById('weekReduce').textContent=money(ws.reduce);
+
+ if(!wr.length) document.getElementById('weekAdvice').textContent='先记录几笔账单，我会生成本周总结。';
+ else{
+   const top=topCategory(wr);
+   let t=`本周共记录 ${wr.length} 笔，支出 ${money(ws.expense)}。`;
+   if(top) t+=` 花费最多的是「${top.name}」${money(top.amount)}。`;
+   t+=ws.reduce>0?` 其中标记为“可减少”的支出 ${money(ws.reduce)}，可以优先复盘。`:' 目前没有标记为“可减少”的支出。';
+   document.getElementById('weekAdvice').textContent=t;
+ }
+ renderList();
+ renderAnalysis(ms,mr);
+}
+function topCategory(rs){
+ const map={};
+ rs.filter(r=>r.type==='expense').forEach(r=>map[r.category]=(map[r.category]||0)+r.amount);
+ const arr=Object.entries(map).map(([name,amount])=>({name,amount})).sort((a,b)=>b.amount-a.amount);
+ return arr[0];
+}
+function renderList(){
+ const el=document.getElementById('list');
+ const all=allRecords().sort((a,b)=>new Date(b.date)-new Date(a.date));
+ if(!all.length){el.innerHTML='<div class="empty">还没有账单</div>';return}
+ el.innerHTML=all.map(r=>{
+   const need={necessary:'必要',normal:'一般',reduce:'可减少'}[r.need]||'一般';
+   const title=r.isGift?'礼薄':r.category;
+   const deleteBtn=r.isGift
+     ? `<button class="del" onclick="delGift(${String(r.id).replace('gift-','')})">删除</button>`
+     : `<button class="del" onclick="delRecord(${r.id})">删除</button>`;
+   return `<div class="record"><div><b>${title}</b> <span class="pill">${r.isGift?'随礼':need}</span>${r.note?`<div class="muted">${r.note}</div>`:''}<div class="muted">${fmtDate(r.date)}</div></div><div class="record-right"><b class="${r.type==='income'?'green':'red'}">${r.type==='income'?'+':'-'}${money(r.amount)}</b><br>${deleteBtn}</div></div>`;
+ }).join('');
+}
+
+function delRecord(id){
+ if(!confirm('确定删除这笔记录吗？'))return;
+ records=records.filter(r=>r.id!==id);localStorage.setItem(KEY,JSON.stringify(records));render();
+}
+function renderAnalysis(ms,mr){
+ const top=topCategory(mr), reduce=ms.reduce;
+ let text=`本月收入：<b>${money(ms.income)}</b><br>本月支出：<b>${money(ms.expense)}</b><br>当前结余：<b>${money(ms.income-ms.expense)}</b><br><br>`;
+ if(top) text+=`主要支出：<b>${top.name}</b>，共 ${money(top.amount)}。<br>`;
+ text+=`可减少支出：<b>${money(reduce)}</b>。<br><br>`;
+ if(ms.income===0&&ms.expense>0) text+='⚠️ 目前只有支出没有收入记录，结余会显示为负数。';
+ else if(reduce>0) text+='💡 可以先从“可减少”支出入手，每周复盘一次。';
+ else if(ms.expense>0) text+='👍 暂时没有标记为“可减少”的支出，继续记录即可。';
+ else text+='先记录收入和支出，我会逐步形成你的消费画像。';
+ document.getElementById('analysisText').innerHTML=text;
+
+ const map={};mr.filter(r=>r.type==='expense').forEach(r=>map[r.category]=(map[r.category]||0)+r.amount);
+ const arr=Object.entries(map).sort((a,b)=>b[1]-a[1]);
+ document.getElementById('categoryText').innerHTML=arr.length?arr.map(([name,val])=>{
+   const pct=ms.expense?Math.round(val/ms.expense*100):0;
+   return `<div style="margin:12px 0"><div><b>${name}</b>　${money(val)}　${pct}%</div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+ }).join(''):'<div class="empty">本月还没有支出分类数据</div>';
+}
+
+function addGift(){
+ const amount=Number(document.getElementById('giftAmount').value);
+ const person=document.getElementById('giftPerson').value.trim();
+ if(!amount||amount<=0){alert('请输入礼金金额');return}
+ if(!person){alert('请输入对象姓名');return}
+ gifts.unshift({
+  id:Date.now(),type:document.getElementById('giftType').value,amount,
+  person,occasion:document.getElementById('giftOccasion').value.trim(),
+  note:document.getElementById('giftNote').value.trim(),date:new Date().toISOString()
+ });
+ localStorage.setItem(GIFT_KEY,JSON.stringify(gifts));
+ document.getElementById('giftAmount').value='';
+ document.getElementById('giftPerson').value='';
+ document.getElementById('giftOccasion').value='';
+ document.getElementById('giftNote').value='';
+ renderGifts(); alert('礼薄已保存');
+}
+function delGift(id){
+ if(!confirm('确定删除这条礼薄记录吗？'))return;
+ gifts=gifts.filter(x=>x.id!==id);localStorage.setItem(GIFT_KEY,JSON.stringify(gifts));renderGifts();
+}
+function renderGifts(){
+ const given=gifts.filter(x=>x.type==='give').reduce((s,x)=>s+x.amount,0);
+ const received=gifts.filter(x=>x.type==='receive').reduce((s,x)=>s+x.amount,0);
+ document.getElementById('giftGiven').textContent=money(given);
+ document.getElementById('giftReceived').textContent=money(received);
+ document.getElementById('giftNet').textContent=money(received-given);
+ const el=document.getElementById('giftList');
+ if(!gifts.length){el.innerHTML='<div class="empty">还没有礼薄记录</div>';return}
+ el.innerHTML=gifts.map(x=>`
+ <div class="record">
+  <div><b>${x.person}</b> <span class="pill">${x.type==='give'?'我送出':'我收到'}</span>
+  ${x.occasion?`<div class="muted">${x.occasion}</div>`:''}
+  ${x.note?`<div class="muted">${x.note}</div>`:''}
+  <div class="muted">${fmtDate(x.date)}</div></div>
+  <div class="record-right"><b class="${x.type==='give'?'red':'green'}">${x.type==='give'?'-':'+'}${money(x.amount)}</b>
+  <br><button class="del" onclick="delGift(${x.id})">删除</button></div>
+ </div>`).join('');
+}
+
+function addLoan(){
+ const amount=Number(document.getElementById('loanAmount').value);
+ const person=document.getElementById('loanPerson').value.trim();
+ if(!amount||amount<=0){alert('请输入借款金额');return}
+ if(!person){alert('请输入对方姓名');return}
+ loans.unshift({
+  id:Date.now(),type:document.getElementById('loanType').value,amount,person,
+  date:document.getElementById('loanDate').value||new Date().toISOString().slice(0,10),
+  purpose:document.getElementById('loanPurpose').value.trim(),
+  status:document.getElementById('loanStatus').value,
+  note:document.getElementById('loanNote').value.trim()
+ });
+ localStorage.setItem(LOAN_KEY,JSON.stringify(loans));
+ document.getElementById('loanAmount').value='';
+ document.getElementById('loanPerson').value='';
+ document.getElementById('loanPurpose').value='';
+ document.getElementById('loanNote').value='';
+ renderLoans(); alert('借款已保存');
+}
+function delLoan(id){
+ if(!confirm('确定删除这条借款记录吗？'))return;
+ loans=loans.filter(x=>x.id!==id);localStorage.setItem(LOAN_KEY,JSON.stringify(loans));renderLoans();
+}
+function renderLoans(){
+ const out=loans.filter(x=>x.type==='out'&&x.status!=='paid').reduce((s,x)=>s+x.amount,0);
+ const inn=loans.filter(x=>x.type==='in'&&x.status!=='paid').reduce((s,x)=>s+x.amount,0);
+ const count=loans.filter(x=>x.status!=='paid').length;
+ document.getElementById('loanOut').textContent=money(out);
+ document.getElementById('loanIn').textContent=money(inn);
+ document.getElementById('loanCount').textContent=count;
+ const el=document.getElementById('loanList');
+ if(!loans.length){el.innerHTML='<div class="empty">还没有借款记录</div>';return}
+ const statusText={unpaid:'未还',partial:'部分已还',paid:'已还清'};
+ el.innerHTML=loans.map(x=>`
+ <div class="record">
+  <div><b>${x.person}</b> <span class="pill">${x.type==='out'?'我借给别人':'别人借给我'}</span>
+  <div class="muted">${x.purpose||'未填写用途'} · ${x.date}</div>
+  <div class="muted">状态：${statusText[x.status]||x.status}</div>
+  ${x.note?`<div class="muted">${x.note}</div>`:''}</div>
+  <div class="record-right"><b>${money(x.amount)}</b><br><button class="del" onclick="delLoan(${x.id})">删除</button></div>
+ </div>`).join('');
+}
+
+function show(id,btn){
+ ['home','records','analysis','gift','loan'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));
+ document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');render();
+}
+render();renderGifts();renderLoans();smartPreview();
+</script>
+</body>
+</html>
